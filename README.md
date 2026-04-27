@@ -83,7 +83,14 @@ bash scripts/install.sh --brave --profile Default
 ./dist/interceptor status
 ```
 
-If Brave is already open, the install script asks before quitting and relaunching it with `extension/dist/` loaded. If you want `interceptor` on your `PATH`, symlink `dist/interceptor` into a directory already on your shell path; otherwise use `./dist/interceptor` from the repo.
+Optional — put `interceptor` on your `PATH` (binds the binary location to this repo):
+
+```bash
+mkdir -p ~/.local/bin
+ln -sf "$PWD/dist/interceptor" ~/.local/bin/interceptor
+```
+
+If Brave is already open, the install script asks before quitting and relaunching it with `extension/dist/` loaded. Without the optional symlink, run commands as `./dist/interceptor` from the repo.
 
 ## Quick Start
 
