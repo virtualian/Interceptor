@@ -131,8 +131,12 @@ echo "    Notary profile:    $NOTARY_PROFILE"
 echo ""
 
 # ── Step 2: Build ─────────────────────────────────────────────────────────────
+# Pass the release version through to build-bridge.sh so the .app's
+# CFBundleShortVersionString / CFBundleVersion match. Sparkle compares those
+# against the appcast's sparkle:version — if they don't agree, the updater
+# silently decides nothing's available.
 echo "==> Step 2: bash scripts/build.sh"
-bash "$REPO_ROOT/scripts/build.sh"
+INTERCEPTOR_BRIDGE_VERSION="$VERSION" bash "$REPO_ROOT/scripts/build.sh"
 echo ""
 
 # ── Step 3: Codesign CLI + daemon ─────────────────────────────────────────────
