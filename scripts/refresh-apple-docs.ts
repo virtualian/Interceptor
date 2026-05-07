@@ -10,9 +10,11 @@
  * in the first 400 bytes).
  *
  * Usage:
- *   bun scripts/refresh-apple-docs.ts [--root <path>] [--limit N]
+ *   bun scripts/refresh-apple-docs.ts --root <path> [--limit N]
  *                                     [--concurrency N] [--dry-run]
  *                                     [--only <substr>] [--force] [--verbose]
+ *
+ *   Or set INTERCEPTOR_APPLE_DOCS_ROOT in the environment.
  */
 
 import { readdir, readFile, writeFile, stat, mkdir, appendFile } from "node:fs/promises";
@@ -31,7 +33,7 @@ type Args = {
 
 function parseArgs(argv: string[]): Args {
   const a: Args = {
-    root: "/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-developer-docs",
+    root: process.env.INTERCEPTOR_APPLE_DOCS_ROOT ?? "",
     concurrency: 24,
     limit: 0,
     dryRun: false,
@@ -403,6 +405,10 @@ async function isAlreadyRendered(readme: string): Promise<boolean> {
 // ---------- main ----------
 async function main() {
   const args = parseArgs(Bun.argv.slice(2));
+  if (!args.root) {
+    console.error("error: refresh-apple-docs requires --root <path> or INTERCEPTOR_APPLE_DOCS_ROOT env var");
+    process.exit(1);
+  }
   console.log(`refresh-apple-docs starting | root=${args.root} concurrency=${args.concurrency} dryRun=${args.dryRun}`);
 
   const failureLog = join(args.root, "..", ".refresh-apple-docs.failures.log");

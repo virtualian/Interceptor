@@ -33,7 +33,8 @@ type Args = {
 
 function parseArgs(argv: string[]): Args {
   const a: Args = {
-    root: "/Volumes/VRAM/80-89_Resources/80_Reference/docs/apple-developer-docs",
+    // Set --root <path> or INTERCEPTOR_APPLE_DOCS_ROOT in the environment.
+    root: process.env.INTERCEPTOR_APPLE_DOCS_ROOT ?? "",
     dryRun: false,
     onCollision: "overwrite",
     verbose: false,
@@ -69,6 +70,10 @@ async function* walkReadmes(root: string): AsyncGenerator<string> {
 
 async function main() {
   const args = parseArgs(Bun.argv.slice(2));
+  if (!args.root) {
+    console.error("error: flatten-apple-docs requires --root <path> or INTERCEPTOR_APPLE_DOCS_ROOT env var");
+    process.exit(1);
+  }
   console.log(`flatten-apple-docs | root=${args.root} dryRun=${args.dryRun} collision=${args.onCollision}`);
 
   const startedAt = Date.now();
