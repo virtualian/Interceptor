@@ -45,7 +45,7 @@ When the user names a specific app ("screenshot of Brave", "scroll Signal", "ope
 | Open URL in a specific browser | `interceptor macos intent dispatch --bundle <id> --script 'open location "..."'` | ✅ Apple Events deliver without raising |
 | Read the active tab URL of Brave/Chrome/Safari | `interceptor macos intent dispatch --bundle <id> --script '... URL of active tab ...'` | ✅ |
 | Scroll a backgrounded app | `interceptor macos scroll <dir> <amount> --app "X" --times <N>` (routes via `postToPid`) | ✅ for Cocoa & most Electron; Chromium-occluded apps may need brief raise |
-| Move / resize a backgrounded window | `interceptor macos move/resize "X"` via AX | ✅ |
+| Move / resize a backgrounded window | `interceptor macos move/resize <ref> --app "X"` via AX (returns ground-truth `frame` + `clamped` + `clampedTo` per PRD-62) | ✅ |
 | Click / type / drag against a non-frontmost native app | `interceptor macos act <ref>` (AX press / value-set) or `... --app "X"` (PID-routed CGEvent) | ✅ |
 
 **Reflexes to drop:** `interceptor macos app activate` is not a precondition for capture, AX read, scroll, type, or Apple Events. Skip it. The user's focused window stays where it was.
@@ -138,9 +138,9 @@ Every command in this table has been live-verified to leave frontmost untouched.
 1. Compound: `interceptor macos open "X"`, `interceptor macos read`, `interceptor macos inspect`.
 2. AX tree narrows: `tree`, `find`, `focused`, `value`, `action`, `windows`, `inspect <ref>`.
 3. App / window control: `apps`, `app activate/hide/quit/launch`, `frontmost`, `move`, `resize`.
-4. Capture: `screenshot --app "X"`, `capture start/frame/stop`, `stream start/frame/stop`.
+4. Capture: `screenshot --app "X"`, `capture start/status/frame/stop`, `stream start/frame/stop`. Per PRD-63, `capture status` returns `{active, hasFrame, frameAgeMs}` and `capture frame` returns `{dataUrl, bytes, width, height, format}` matching `screenshot`'s shape.
 5. Audio intelligence: `listen`, `vad`, `sounds`, `audio output/input`.
-6. Vision / NLP / Intelligence: `vision text/faces/hands/bodies`, `nlp entities/sentiment/language`, `ai prompt`.
+6. Vision / NLP / Intelligence: `vision text/faces/hands/bodies`, `nlp entities/language/sentiment/tokens/similar/embed` (all six verbs functional after PRD-63 dispatch fix), `ai status/prompt/session` (functional after PRD-65 dispatch fix), `sensitive check/monitor` (functional after PRD-65 dispatch fix).
 7. Cross-app routing: `intent dispatch --bundle <id> --script <applescript>`, `intent warmup`.
 8. System reads: `notifications tail`, `clipboard read/write/tail`, `files watch`, `fs read/write/search`, `url get/post`, `log query`.
 9. Overlays: `overlay *` — panic hotkey `Ctrl+Opt+Cmd+Escape` always available.
