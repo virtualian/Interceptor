@@ -38,14 +38,17 @@ Compound (agent-optimized):
   interceptor read <ref>                     Tree + text for element subtree
   interceptor read --tree-only               Skip text
   interceptor read --text-only               Skip tree
+  interceptor read --markdown                Render page text as markdown (preserves headings/bold/lists/tables)
   interceptor read --include-style           Inline computed styles per element
   interceptor read --include-frames          Walk all reachable frames (non-top refs are e<frameId>_<n>)
+  interceptor read --tree-format compact     Compact tree (>-depth + [ref|role|name|attr=val]); agent context economy
+  interceptor read --tree-format verbose     Indented legacy tree (default; humans prefer this)
   interceptor style inject --css "<rules>"  Inject a stylesheet; returns a handle (all frames by default)
   interceptor style inject --css "<rules>" --top-only   Inject only into the top frame
   interceptor style remove <handle>          Remove a previously injected stylesheet
   interceptor act <ref>                      Click + wait + return updated tree + diff
   interceptor act <ref> "value"              Type into field + wait + return updated tree
-  interceptor act <ref> --os                 Use OS-level trusted input
+  interceptor act <ref> --trusted            Use HID-sourced trusted input (page sees isTrusted: true)
   interceptor act <ref> --keys "Enter"       Send keyboard shortcut instead
   interceptor act <ref> --no-read            Skip post-action tree read
   interceptor inspect                        Tree + text + network log + headers
@@ -62,6 +65,8 @@ State:
   interceptor find "query" --role button     Filter by role
   interceptor text                           All visible text
   interceptor text <index|ref>               Text from specific element
+  interceptor text --markdown                All visible text rendered as markdown
+  interceptor text <ref> --markdown          Element text rendered as markdown
   interceptor html <index|ref>               HTML of specific element
 
 Actions:

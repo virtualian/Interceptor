@@ -9,5 +9,9 @@
     "shared/**/*.ts",
     "scripts/**/*.ts",
     "test/**/*.ts"
+  ],
+  "exclude": [
+    "test/read-tree-format.test.ts",
+    "test/markdown-extract.test.ts"
   ]
 }

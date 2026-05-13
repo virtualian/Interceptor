@@ -8,6 +8,7 @@
 
 import { sendCommand, sendCommandWs, type DaemonResponse } from "../transport"
 import { parseElementTarget } from "../parse"
+import { hasTrustedFlag } from "./flags"
 
 type Action = { type: string; [key: string]: unknown }
 type Result = { success: boolean; error?: string; data?: unknown; tabId?: number }
@@ -32,7 +33,10 @@ function textData(result: Result): string {
 
 function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text
-  return text.slice(0, maxChars) + "\n... (truncated)"
+  // Explicit truncation marker so agents know to scope or widen instead of
+  // escaping to ?action=raw / view-source when rendered text appears missing.
+  return text.slice(0, maxChars) +
+    `\n... (truncated: showed ${maxChars} of ${text.length} chars. Pass --full to see all, or 'read e<ref> --text-only' to scope, or 'find "<term>"' to jump.)`
 }
 
 async function send(action: Action, tabId?: number, useWs = false): Promise<Result> {
@@ -65,7 +69,10 @@ export function aggregateReadResults(opts: {
   if (opts.textRequested) {
     if (opts.textResult?.success) {
       text = textData(opts.textResult)
-      if (!opts.full) text = truncateText(text, 2000)
+      // Default text cap is 8,000 chars — large enough to fit a mid-sized
+      // page intro without forcing --full. --full unlocks the full 200K
+      // cap from the extension side.
+      if (!opts.full) text = truncateText(text, 8000)
     } else if (opts.textResult?.error) {
       warnings.push(`text: ${opts.textResult.error}`)
     }
@@ -88,12 +95,14 @@ export function buildReadTreeAction(opts: {
   filterMode: string
   includeStyle: boolean
   includeFrames: boolean
+  treeFormat?: "verbose" | "compact"
 }): Action {
   const base: Omit<Action, "type"> = {
     depth: 15,
     filter: opts.filterMode,
     maxChars: 50000,
-    includeStyle: opts.includeStyle
+    includeStyle: opts.includeStyle,
+    ...(opts.treeFormat === "compact" ? { treeFormat: "compact" } : {})
   }
 
   if (opts.includeFrames) {
@@ -136,6 +145,7 @@ export async function runOpen(
 
   const treeOnly = filtered.includes("--tree-only")
   const textOnly = filtered.includes("--text-only")
+  const markdown = filtered.includes("--markdown")
   const full = filtered.includes("--full")
   const noWait = filtered.includes("--no-wait")
   const timeoutIdx = filtered.indexOf("--timeout")
@@ -186,7 +196,8 @@ export async function runOpen(
   }
 
   if (!treeOnly) {
-    textResult = await send({ type: "extract_text" }, tabId, useWs)
+    const textActionType: "extract_text" | "extract_markdown" = markdown ? "extract_markdown" : "extract_text"
+    textResult = await send({ type: textActionType }, tabId, useWs)
   }
 
   const aggregate = aggregateReadResults({
@@ -242,11 +253,15 @@ export async function runRead(
 ): Promise<void> {
   const treeOnly = filtered.includes("--tree-only")
   const textOnly = filtered.includes("--text-only")
+  const markdown = filtered.includes("--markdown")
   const full = filtered.includes("--full")
   const includeStyle = filtered.includes("--include-style")
   const includeFrames = filtered.includes("--include-frames")
   const filterIdx = filtered.indexOf("--filter")
   const filterMode = filterIdx !== -1 ? filtered[filterIdx + 1] : "interactive"
+  const treeFormatIdx = filtered.indexOf("--tree-format")
+  const treeFormat: "verbose" | "compact" =
+    treeFormatIdx !== -1 && filtered[treeFormatIdx + 1] === "compact" ? "compact" : "verbose"
 
   // Check for optional ref argument (skip flags)
   const refArg = filtered[1] && !filtered[1].startsWith("--") ? filtered[1] : undefined
@@ -261,7 +276,7 @@ export async function runRead(
   if (!textOnly) {
     if (includeFrames) {
       const framesResp = await send(
-        buildReadTreeAction({ target, filterMode, includeStyle, includeFrames }),
+        buildReadTreeAction({ target, filterMode, includeStyle, includeFrames, treeFormat }),
         globalTabId, useWs
       )
       if (framesResp.success && framesResp.data && typeof framesResp.data === "object" && Array.isArray((framesResp.data as { frames?: unknown[] }).frames)) {
@@ -286,14 +301,14 @@ export async function runRead(
       }
     } else {
       treeResult = await send(
-        buildReadTreeAction({ target, filterMode, includeStyle, includeFrames }),
+        buildReadTreeAction({ target, filterMode, includeStyle, includeFrames, treeFormat }),
         globalTabId, useWs
       )
     }
   }
 
   if (!treeOnly) {
-    const textAction: Action = { type: "extract_text", ...target }
+    const textAction: Action = { type: markdown ? "extract_markdown" : "extract_text", ...target }
     textResult = await send(textAction, globalTabId, useWs)
   }
 
@@ -347,7 +362,7 @@ export async function runAct(
     process.exit(1)
   }
 
-  const useOs = filtered.includes("--os")
+  const useOs = hasTrustedFlag(filtered)
   const append = filtered.includes("--append")
   const noRead = filtered.includes("--no-read")
   const keysIdx = filtered.indexOf("--keys")
@@ -355,7 +370,7 @@ export async function runAct(
   const timeout = timeoutIdx !== -1 ? parseInt(filtered[timeoutIdx + 1]) : 2000
 
   // Find value: everything after ref that isn't a flag
-  const flagSet = new Set(["--os", "--append", "--no-read", "--keys", "--timeout"])
+  const flagSet = new Set(["--trusted", "--os", "--append", "--no-read", "--keys", "--timeout"])
   const valueArgs: string[] = []
   let skip = false
   for (let i = 2; i < filtered.length; i++) {
